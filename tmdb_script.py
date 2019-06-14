@@ -5,10 +5,10 @@ import numpy as np
 plt.style.use('ggplot')
 plt.close('all')
 
-pd.set_option('display.max_columns',23)
+pd.set_option('display.max_columns', 23)
 
-train   = pd.read_csv('train.csv')
-test    = pd.read_csv('test.csv')
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
 
 print 'training dataset size: ' + str(train.shape)
 print 'test dataset size: ' + str(test.shape)
@@ -37,7 +37,7 @@ def logCol(df,cols):
     for col in cols:
         df['log_'+col] = 0
         df.loc[df[col]!=0,'log_'+col] = df.loc[df[col]!=0,col].apply(np.log)
-        
+
 logCol(train,['budget','revenue'])
 logCol(test,['budget'])
 
@@ -114,7 +114,7 @@ def plotErrorBy(df,col1,col2):
     plt.errorbar(x,y,sd)
     plt.xlabel(col2)
     plt.ylabel(col1)
-    
+
 month_list = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 plt.figure()
@@ -147,11 +147,11 @@ plt.xticks(np.array(range(7))+.5,dow_list,rotation='vertical',fontsize=8)
 plt.ylabel('count')
 #%% Parse columns with JSON formatting
 
-#columns with json formatting
+# columns with json formatting
 json_cols = ['genres', 'production_companies', 'production_countries', 'cast',
              'crew', 'spoken_languages', 'Keywords', 'belongs_to_collection']
 
-#use eval to convert json strings to dict objects
+# use eval to convert json strings to dict objects
 def get_dictionary(s):
     try:
         d = eval(s)
@@ -176,7 +176,7 @@ def get_json_dict(df):
                     d[j] = []
                 d[j].append(df['title'][i])
         result[col] = d
-        
+
     return result
 
 train_dict = get_json_dict(train)
@@ -254,10 +254,10 @@ def monthDummies(df):
     global month_list
     dummies = pd.DataFrame(data=pd.get_dummies(df['release_month'],drop_first=True))
     dummies = dummies.rename(mapper=dict(zip(range(2,13),month_list[1:])),axis='columns')
-    
+
     df = df.join(dummies)
     return df
-    
+
 train = monthDummies(train)
 test  = monthDummies(test)
 
@@ -281,7 +281,7 @@ test['log_budget_x_year']  = test['log_budget']*test['release_year']
 train['log_budget_x_runtime'] = train['log_budget']*train['runtime']
 test['log_budget_x_runtime']  = test['log_budget']*test['runtime']
 
-x_cols = ['log_budget','release_year','log_budget_x_year','runtime','log_budget_x_runtime'] 
+x_cols = ['log_budget','release_year','log_budget_x_year','runtime','log_budget_x_runtime']
 dummy_cols = month_list[1:] + dow_list[1:] + top_Keywords + top_genres + top_cast + top_production_companies
 
 for col in x_cols:
@@ -289,12 +289,13 @@ for col in x_cols:
     test['z_' + col]  = (test[col]-train[col].mean())/train[col].std()
     train.loc[train['z_'+ col].isnull(),['z_'+ col]] = 0
     test.loc[test['z_'+ col].isnull(),['z_'+ col]] = 0
-   
+
 z_cols = ['z_'+col for col in x_cols]
 x_cols = z_cols + dummy_cols
 y_cols = ['log_revenue']
 
-
+category_list = [1]*(len(month_list)-1)+[2]*(len(dow_list)-1)+[3]*len(top_Keywords)+[4]*len(top_genres)+[5]*len(top_cast)+[6]*len(top_production_companies)
+indices = [[x==i for x in category_list] for i in set(category_list)]
 
 lm = linear_model.LinearRegression()
 lm.fit(train[x_cols],train[y_cols])
@@ -304,7 +305,11 @@ plt.bar(x_cols,lm.coef_[0])
 plt.xticks(rotation='vertical',fontsize=7)
 plt.subplots_adjust(bottom=0.4)
 plt.figure()
-plt.bar(x_cols[len(z_cols):],lm.coef_[0][len(z_cols):])
+bar_list = plt.bar(x_cols[len(z_cols):],lm.coef_[0][len(z_cols):])
+for i in range(len(indices)):
+    for j in range(len(bar_list)):
+        if indices[i][j]:
+            bar_list[j].set_color()
 plt.xticks(rotation='vertical',fontsize=7)
 plt.subplots_adjust(bottom=0.4)
 #%%
@@ -315,4 +320,3 @@ submission = pd.DataFrame(test['id'])
 submission['revenue'] = predict
 
 submission.to_csv(path_or_buf='submission.csv',index=False)
-
